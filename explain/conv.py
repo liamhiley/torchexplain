@@ -1,0 +1,58 @@
+import torch
+import torch.nn as nn
+from torch.nn.modules.utils import _single, _pair, _triple
+from .autograd import conv3d
+import math
+
+conv3d = conv3d.apply
+
+class _ConvNd(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride,
+                 padding, dilation, transposed, output_padding, groups, bias, range):
+        super(_ConvNd, self).__init__()
+        if in_channels % groups != 0:
+            raise ValueError('in_channels must be divisible by groups')
+        if out_channels % groups != 0:
+            raise ValueError('out_channels must be divisible by groups')
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+        self.dilation = dilation
+        self.transposed = transposed
+        self.output_padding = output_padding
+        self.groups = groups
+        self.range = range
+        if transposed:
+            self.weight = nn.Parameter(torch.Tensor(
+                in_channels, out_channels // groups, *kernel_size))
+        else:
+            self.weight = nn.Parameter(torch.Tensor(
+                out_channels, in_channels // groups, *kernel_size))
+        if bias:
+            self.bias = nn.Parameter(torch.Tensor(out_channels))
+        else:
+            self.register_parameter('bias', None)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        n = self.in_channels
+        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        if self.bias is not None:
+            fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
+            bound = 1 / math.sqrt(fan_in)
+            nn.init.uniform_(self.bias, -bound, bound)
+
+class Conv3d(_ConvNd):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1,
+                 padding=0, dilation=1, groups=1, bias=True,range=None):
+        kernel_size = _triple(kernel_size)
+        stride = _triple(stride)
+        padding = _triple(padding)
+        dilation = _triple(dilation)
+        super(Conv3d, self).__init__(in_channels, out_channels, kernel_size, stride,
+                                     padding, dilation, False, _triple(0), groups, bias, range)
+
+    def forward(self, input):
+        return conv3d(input, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups, self.range)
