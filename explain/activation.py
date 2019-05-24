@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from autograd import threshold
+from .autograd import threshold
 threshold = threshold.apply
 
 class Threshold(nn.Module):

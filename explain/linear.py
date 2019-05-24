@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from autograd import linear
+from .autograd import linear
 import math
 linear = linear.apply
 

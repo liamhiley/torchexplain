@@ -1,10 +1,31 @@
 import torch
 import torch.nn as nn
-from .autograd import avg_pool3d, max_pool3d
+from .autograd import adaptive_avg_pool2d, adaptive_avg_pool3d, avg_pool2d, avg_pool3d, max_pool2d, max_pool3d
 from torch.nn.modules.utils import _single, _pair, _triple
 
+avg_pool2d = avg_pool2d.apply
 avg_pool3d = avg_pool3d.apply
+max_pool2d = max_pool2d.apply
 max_pool3d = max_pool3d.apply
+adaptive_avg_pool2d = adaptive_avg_pool2d.apply
+adaptive_avg_pool3d = adaptive_avg_pool3d.apply
+
+
+class _AdaptiveAvgPoolNd(nn.Module):
+    def __init__(self, output_size):
+        super(_AdaptiveAvgPoolNd, self).__init__()
+        self.output_size = output_size
+
+    def extra_repr(self):
+        return 'output_size={}'.format(self.output_size)
+
+class AdaptiveAvgPool2d(_AdaptiveAvgPoolNd):
+    def forward(self, input):
+        return adaptive_avg_pool2d(input, self.output_size)
+
+class AdaptiveAvgPool3d(_AdaptiveAvgPoolNd):
+    def forward(self, input):
+        return adaptive_avg_pool3d(input, self.output_size)
 
 class _AvgPoolNd(nn.Module):
     def extra_repr(self):
@@ -36,6 +57,12 @@ class _MaxPoolNd(nn.Module):
     def extra_repr(self):
         return 'kernel_size={kernel_size}, stride={stride}, padding={padding}' \
             ', dilation={dilation}, ceil_mode={ceil_mode}'.format(**self.__dict__)
+
+class MaxPool2d(_MaxPoolNd):
+    def forward(self, input):
+        return max_pool2d(input, _pair(self.kernel_size), _pair(self.stride),
+                            _pair(self.padding), _pair(self.dilation), self.ceil_mode,
+                            self.return_indices)
 
 class MaxPool3d(_MaxPoolNd):
     def forward(self, input):
