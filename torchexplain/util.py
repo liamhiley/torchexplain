@@ -67,7 +67,5 @@ class Add(nn.Module):
         return add(*input)
 
 class MinMaxScaler(nn.Module):
-    def __init__(self, min=0, max=1):
-        super(nn.Module,self).__init__()
     def forward(self, input):
         return scale(input, input.min(), input.max() - input.min())
