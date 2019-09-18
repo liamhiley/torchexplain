@@ -617,6 +617,17 @@ class threshold(Function):
         mask = ctx.saved_tensors[0]
         return grad_output*mask, None, None, None
 
+class scale(Function):
+    def forward(ctx, input, min=0, range=1):
+        output = torch.mm(torch.sub(input,min),range)
+        ctx.save_for_backward(input, output)
+        ctx.hparams = (min, range)
+        return output
+    def backward(ctx, grad_output):
+        inp, out = ctx.saved_tensors
+        min, range = ctx.hparams
+        return inp * grad_output/range*(inp-min)*out, None, None
+
 class batch_norm(Function):
     @staticmethod
     def forward(ctx, input, running_mean, running_var, weight=None, bias=None,
