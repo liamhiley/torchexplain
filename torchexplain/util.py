@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from .autograd import avg_pool3d, avg_pool2d, add
+from .autograd import avg_pool3d, avg_pool2d, add, scale
 from . import Conv2d, Conv3d, BatchNorm2d, BatchNorm3d
 avg_pool3d = avg_pool3d.apply
 avg_pool2d = avg_pool2d.apply
@@ -65,3 +65,9 @@ class Downsample(nn.Module):
 class Add(nn.Module):
     def forward(self, *input):
         return add(*input)
+
+class MinMaxScaler(nn.Module):
+    def __init__(self, min=0, max=1):
+        super(nn.Module,self).__init__()
+    def forward(self, input):
+        return scale(input, input.min(), input.max() - input.min())
