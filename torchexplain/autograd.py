@@ -620,7 +620,7 @@ class threshold(Function):
 class scale(Function):
     @staticmethod
     def forward(ctx, input, min=0, range=1):
-        output = torch.mm(torch.sub(input,min),range)
+        output = torch.mul(torch.sub(input,min),1/range)
         ctx.save_for_backward(input, output)
         ctx.hparams = (min, range)
         return output
