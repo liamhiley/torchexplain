@@ -7,6 +7,7 @@ avg_pool3d = avg_pool3d.apply
 avg_pool2d = avg_pool2d.apply
 # avg_pool1d = avg_pool1d.apply
 add = add.apply
+scale = scale.apply
 from functools import partial
 class Shortcut(nn.Module):
     def forward(self, *input):
