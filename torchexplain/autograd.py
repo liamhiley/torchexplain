@@ -618,11 +618,13 @@ class threshold(Function):
         return grad_output*mask, None, None, None
 
 class scale(Function):
+    @staticmethod
     def forward(ctx, input, min=0, range=1):
         output = torch.mm(torch.sub(input,min),range)
         ctx.save_for_backward(input, output)
         ctx.hparams = (min, range)
         return output
+    @staticmethod
     def backward(ctx, grad_output):
         inp, out = ctx.saved_tensors
         min, range = ctx.hparams
