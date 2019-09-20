@@ -1,9 +1,10 @@
 from setuptools import setup, find_packages
-
+with open("README.md", "r") as fh:
+    long_description = fh.read()
 setup(
         name="torchexplain",
+        version="0.0.7",
         packages=find_packages(),
-        use_scm_version=True,
         setup_requires=["setuptools_scm"],
         install_requires=[
             "numpy",
@@ -14,6 +15,7 @@ setup(
         author=("Liam Hiley"),
         author_email="hileyl@cardiff.ac.uk",
         description="Extension to PyTorch to include explanations via Layerwise Relevance Propagation",
+        long_description=long_description,
         license="MIT License",
         keywords=["explainability"],
         url="https://github.com/liamhiley/torchexplain",
