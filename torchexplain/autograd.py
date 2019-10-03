@@ -54,7 +54,7 @@ class conv3d(Function):
         ctx.hparam = [stride, padding, dilation, groups, shortcut]
         output = F.conv3d(input, weight, bias, stride,
                         padding, dilation, groups)
-        ctx.save_for_backward(input, weight, bias, output)
+        ctx.save_for_backward(input, weight, bias)
         return output
     @staticmethod
     def backward(ctx, grad_output):
@@ -677,7 +677,7 @@ class add(Function):
     @staticmethod
     def backward(ctx, grad_output):
         inputs = ctx.saved_tensors
-        sum = torch.sum(torch.cat(inputs),dim=0,keepdim=True)
+        sum = torch.sum(torch.stack(inputs),dim=0)
         norm_grad = grad_output / sum
         for input in inputs:
             input.grad = norm_grad #/ len(inputs)
