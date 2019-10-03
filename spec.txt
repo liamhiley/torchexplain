@@ -1,0 +1,16 @@
+model = vgg()
+x,y = torch.load(data)
+
+model.forward(x) # out = [...]
+
+ExplainableModel = explain.lrp(model)
+
+x, x_heatmap = ExplainableModel.forward(x, class)
+
+
+x.requires_grad_()
+model.eval()
+out = model.forward(x)
+class_to_explain = torch.zeros_like(out)
+class_to_explain[class_idx] += 1
+explanation = torch.autograd.grad(out, x, class_to_explain)
