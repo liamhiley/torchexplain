@@ -353,8 +353,8 @@ class avg_pool3d(Function):
                 for d in range(0,D,stride[0]):
                     for h in range(0,H,stride[1]):
                         for w in range(0,W,stride[2]):
-                            # padded_grad[n, c, d:d + kernel_size[0], h:h + kernel_size[1], w:w + kernel_size[2]] += 1 / torch.Tensor(kernel_size).prod(0)
-                            padded_grad[n,c,d:d+kernel_size[0],h:h+kernel_size[1],w:w+kernel_size[2]] += norm_grad[n,c,d,h,w]/torch.Tensor(kernel_size).prod(0)
+                            # padded_grad[n, c, d:d + kernel_size[0], h:h + kernel_size[1], w:w + kernel_size[2]] += 1 / torch.tensor(kernel_size).prod(0)
+                            padded_grad[n,c,d:d+kernel_size[0],h:h+kernel_size[1],w:w+kernel_size[2]] += norm_grad[n,c,d,h,w]/torch.tensor(kernel_size).prod(0)
         n_pad = [0 for _ in padding]
         for i in range(0, 6, 2):
             if padding[i] > 0:
@@ -400,8 +400,8 @@ class avg_pool2d(Function):
             for c in range(C):
                 for h in range(0,H,stride[1]):
                     for w in range(0,W,stride[2]):
-                        # padded_grad[n, c, d:d + kernel_size[0], h:h + kernel_size[1], w:w + kernel_size[2]] += 1 / torch.Tensor(kernel_size).prod(0)
-                        padded_grad[n,c,h:h+kernel_size[0],w:w+kernel_size[1]] += norm_grad[n,c,h,w]/torch.Tensor(kernel_size).prod(0)
+                        # padded_grad[n, c, d:d + kernel_size[0], h:h + kernel_size[1], w:w + kernel_size[2]] += 1 / torch.tensor(kernel_size).prod(0)
+                        padded_grad[n,c,h:h+kernel_size[0],w:w+kernel_size[1]] += norm_grad[n,c,h,w]/torch.tensor(kernel_size).prod(0)
         n_pad = [0 for _ in padding]
         for i in range(0, 4, 2):
             if padding[i] > 0:
@@ -461,8 +461,8 @@ class adaptive_avg_pool3d(Function):
                 for d in range(0, D, stride[0]):
                     for h in range(0, H, stride[1]):
                         for w in range(0, W, stride[2]):
-                            # padded_grad[n, c, d:d + kernel_size[0], h:h + kernel_size[1], w:w + kernel_size[2]] += 1 / torch.Tensor(kernel_size).prod(0)
-                            padded_grad[n, c, d:d + kernel_size[0], h:h + kernel_size[1], w:w + kernel_size[2]] += norm_grad[n, c, d, h, w] / torch.Tensor(kernel_size).prod(0)
+                            # padded_grad[n, c, d:d + kernel_size[0], h:h + kernel_size[1], w:w + kernel_size[2]] += 1 / torch.tensor(kernel_size).prod(0)
+                            padded_grad[n, c, d:d + kernel_size[0], h:h + kernel_size[1], w:w + kernel_size[2]] += norm_grad[n, c, d, h, w] / torch.tensor(kernel_size).prod(0)
         n_pad = [0 for _ in padding]
         for i in range(0, 6, 2):
             if padding[i] > 0:
@@ -525,7 +525,7 @@ class adaptive_avg_pool2d(Function):
             for c in range(C):
                 for h in range(0, H, stride[1]):
                     for w in range(0, W, stride[2]):
-                        # padded_grad[n, c, h:h + kernel_size[0], w:w + kernel_size[1]] += 1 / torch.Tensor(kernel_size).prod(0)
+                        # padded_grad[n, c, h:h + kernel_size[0], w:w + kernel_size[1]] += 1 / torch.tensor(kernel_size).prod(0)
                         padded_grad[n, c, h:h + kernel_size[0], w:w + kernel_size[1]] += norm_grad[n, c, h, w] / torch.tensor(kernel_size).prod(0)
         n_pad = [0 for _ in padding]
         for i in range(0, 4, 2):
