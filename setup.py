@@ -3,7 +3,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 setup(
         name="torchexplain",
-        version="0.0.7",
+        version="0.3.5",
         packages=find_packages(),
         setup_requires=["setuptools_scm"],
         install_requires=[
