@@ -77,7 +77,7 @@ class conv3d(Function):
         if not torchexplain.epsilon:
             norm_grad[output == 0] = 0
 
-        input.grad = torch.nn.grad.conv3d_input(input.shape, weights, norm_grad, stride=stride, padding=padding)
+        input.grad = torch.nn.grad.conv3d_input(input.shape, weights, norm_grad, stride=stride, padding=padding, groups=groups)
         if all(ctx.needs_input_grad):
             weights.grad = torch.nn.grad.conv3d_weight(input, weights.shape, norm_grad, stride=stride,
                                                        padding=padding)
@@ -161,9 +161,9 @@ class firstconv3d(Function):
         norm_grad = grad_output / root_out
         if not torchexplain.epsilon:
             norm_grad[root_out == 0] = 0
-        grad = torch.nn.grad.conv3d_input(input.shape, weights, norm_grad, stride=stride, padding=padding)
-        pgrad = torch.nn.grad.conv3d_input(input.shape, pweights, norm_grad, stride=stride, padding=padding)
-        ngrad = torch.nn.grad.conv3d_input(input.shape, nweights, norm_grad, stride=stride, padding=padding)
+        grad = torch.nn.grad.conv3d_input(input.shape, weights, norm_grad, stride=stride, padding=padding, groups=groups)
+        pgrad = torch.nn.grad.conv3d_input(input.shape, pweights, norm_grad, stride=stride, padding=padding, groups=groups)
+        ngrad = torch.nn.grad.conv3d_input(input.shape, nweights, norm_grad, stride=stride, padding=padding, groups=groups)
         if all(ctx.needs_input_grad):
             weights.grad = torch.nn.grad.conv3d_weight(input, weights.shape, norm_grad, stride=stride,
                                                        padding=padding)
@@ -285,9 +285,9 @@ class abconv3d(Function):
 
         # norm_grad[sum_out == 0] = 0
 
-        agrad = torch.nn.grad.conv3d_input(input.shape, pweights, norm_grad, stride=stride, padding=padding)
+        agrad = torch.nn.grad.conv3d_input(input.shape, pweights, norm_grad, stride=stride, padding=padding, groups=groups)
         agrad *= pinput
-        bgrad = torch.nn.grad.conv3d_input(input.shape, nweights, norm_grad, stride=stride, padding=padding)
+        bgrad = torch.nn.grad.conv3d_input(input.shape, nweights, norm_grad, stride=stride, padding=padding, groups=groups)
         bgrad *= linput
 
         grad = agrad + bgrad
@@ -303,9 +303,9 @@ class abconv3d(Function):
             if not torchexplain.epsilonlon:
                 c_grad[csum_out == 0] = 0
 
-            c_agrad = torch.nn.grad.conv3d_input(input.shape, nweights, c_grad, stride=stride, padding=padding)
+            c_agrad = torch.nn.grad.conv3d_input(input.shape, nweights, c_grad, stride=stride, padding=padding, groups=groups)
             c_agrad *= pinput
-            c_bgrad = torch.nn.grad.conv3d_input(input.shape, pweights, c_grad, stride=stride, padding=padding)
+            c_bgrad = torch.nn.grad.conv3d_input(input.shape, pweights, c_grad, stride=stride, padding=padding, groups=groups)
             c_bgrad *= linput
 
             c_grad = c_agrad + c_bgrad
