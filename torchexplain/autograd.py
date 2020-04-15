@@ -212,9 +212,9 @@ class abconv2d(Function):
 
         # norm_grad[sum_out == 0] = 0
 
-        agrad = torch.nn.grad.conv2d_input(input.shape, pweights, norm_grad, stride=stride, padding=padding)
+        agrad = torch.nn.grad.conv2d_input(input.shape, pweights, norm_grad, stride=stride, padding=padding, groups=groups)
         agrad *= pinput
-        bgrad = torch.nn.grad.conv2d_input(input.shape, nweights, norm_grad, stride=stride, padding=padding)
+        bgrad = torch.nn.grad.conv2d_input(input.shape, nweights, norm_grad, stride=stride, padding=padding, groups=groups)
         bgrad *= linput
 
         grad = agrad + bgrad
@@ -230,9 +230,9 @@ class abconv2d(Function):
             if not torchexplain.epsilonlon:
                 c_grad[csum_out == 0] = 0
 
-            c_agrad = torch.nn.grad.conv2d_input(input.shape, nweights, c_grad, stride=stride, padding=padding)
+            c_agrad = torch.nn.grad.conv2d_input(input.shape, nweights, c_grad, stride=stride, padding=padding, groups=groups)
             c_agrad *= pinput
-            c_bgrad = torch.nn.grad.conv2d_input(input.shape, pweights, c_grad, stride=stride, padding=padding)
+            c_bgrad = torch.nn.grad.conv2d_input(input.shape, pweights, c_grad, stride=stride, padding=padding, groups=groups)
             c_bgrad *= linput
 
             c_grad = c_agrad + c_bgrad
@@ -286,12 +286,12 @@ class abconv3d(Function):
         # norm_grad[sum_out == 0] = 0
 
         agrad = torch.nn.grad.conv3d_input(input.shape, pweights, norm_grad, stride=stride, padding=padding, groups=groups)
+
         agrad *= pinput
         bgrad = torch.nn.grad.conv3d_input(input.shape, nweights, norm_grad, stride=stride, padding=padding, groups=groups)
         bgrad *= linput
 
         grad = agrad + bgrad
-
         if beta:
             cpout = F.conv3d(pinput, nweights, None, stride,
                              padding, dilation, groups)
@@ -312,9 +312,9 @@ class abconv3d(Function):
 
             grad = alpha * grad - beta * c_grad
         if all(ctx.needs_input_grad):
-            weights.grad = torch.nn.grad.conv3d_weight(input, weights.shape, grad, stride=stride, padding=padding)
+            weights.grad = torch.nn.grad.conv3d_weight(input, weights.shape, grad, stride=stride, padding=padding, groups=groups)
             if bias is not None:
-                bias.grad = torch.nn.grad.conv3d_weight(input, bias.shape, grad, stride=stride, padding=padding)
+                bias.grad = torch.nn.grad.conv3d_weight(input, bias.shape, grad, stride=stride, padding=padding, groups=groups)
                 return grad, weights.grad, bias.grad, None, None, None, None, None, None, None
             return grad, weights.grad, None, None, None, None, None, None, None, None
         return grad, None, None, None, None, None, None, None, None, None
@@ -398,8 +398,8 @@ class avg_pool2d(Function):
         # The gradient of each element of the output can be distributed equally to each of the elements in the padded input pooling block
         for n in range(N):
             for c in range(C):
-                for h in range(0,H,stride[1]):
-                    for w in range(0,W,stride[2]):
+                for h in range(0,H,stride[0]):
+                    for w in range(0,W,stride[1]):
                         # padded_grad[n, c, d:d + kernel_size[0], h:h + kernel_size[1], w:w + kernel_size[2]] += 1 / torch.tensor(kernel_size).prod(0)
                         padded_grad[n,c,h:h+kernel_size[0],w:w+kernel_size[1]] += norm_grad[n,c,h,w]/torch.tensor(kernel_size).prod(0)
         n_pad = [0 for _ in padding]

@@ -54,7 +54,7 @@ class _ConvNd(nn.Module):
 
 class Conv2d(_ConvNd):
     def __init__(self, in_channels, out_channels, kernel_size=1, stride=1,
-                 padding=0, dilation=1, groups=1, bias=True,range=None, alpha=1, beta=0, shortcut=False):
+                 padding=0, dilation=1, groups=1, bias=True, range=None, alpha=1, beta=0, shortcut=False):
         kernel_size = _pair(kernel_size)
         stride = _pair(stride)
         padding = _pair(padding)
@@ -67,13 +67,13 @@ class Conv2d(_ConvNd):
         if self.range:
             return firstconv2d(input, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups, self.range)
         elif self.alpha:
-            return abconv2d(input, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups, self.alpha, self.beta)
+            return abconv2d(input, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups, self.alpha, self.beta, self.shortcut)
         else:
             return conv2d(input, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups, self.range, self.shortcut)
 
 class Conv3d(_ConvNd):
     def __init__(self, in_channels, out_channels, kernel_size=1, stride=1,
-                 padding=0, dilation=1, groups=1, bias=True,range=None, alpha=1, beta=0, shortcut=False):
+                 padding=0, dilation=1, groups=1, bias=True, range=None, alpha=1, beta=0, shortcut=False):
         kernel_size = _triple(kernel_size)
         stride = _triple(stride)
         padding = _triple(padding)
