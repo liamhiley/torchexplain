@@ -3,16 +3,16 @@ import torch.nn.functional as F
 from torch.nn.modules.utils import _single, _pair, _triple
 import torch.autograd as autograd
 from torch.autograd import Function
-import torchexplain
-torchexplain.shortcut = None
 import copy
-
+from math import ceil, floor
+import pdb
+from . import epsilon
 class conv2d(Function):
     @staticmethod
-    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, shortcut=False):
+    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1):
         # torch.Size([1, 64, 16, 56, 56])
         ctx.save_for_backward(input, weight, bias)
-        ctx.hparam = [stride, padding, dilation, groups, shortcut]
+        ctx.hparam = [stride, padding, dilation, groups]
         return F.conv2d(input, weight, bias, stride,
                         padding, dilation, groups)
     @staticmethod
@@ -21,18 +21,14 @@ class conv2d(Function):
         # weights (F,C,DD,HH,WW)
         # output (N,F,Hd,Hh,Hw)
         input, weights, bias = ctx.saved_tensors
-        stride, padding, dilation, groups, shortcut = ctx.hparam
-        if (torchexplain.shortcut == "shortcut" and shortcut) or (torchexplain.shortcut == "main" and not shortcut) or torchexplain.shortcut is None:
-            weights = torch.clamp(weights, min=0)
-        else:
-            # essentially turn off this connection by assigning equal contribution to all neurons
-            weights = torch.ones_like(weights)
+        stride, padding, dilation, groups = ctx.hparam
+        weights = torch.clamp(weights, min=0)
         output = F.conv2d(input, weights, None, stride,
                         padding, dilation, groups)
-        output[output==0] += torchexplain.epsilon
+        output[output==0] += epsilon
         norm_grad = grad_output / output
         # following EB special case, zero outputs result in relevance of 0 in grad
-        if not torchexplain.epsilon:
+        if not epsilon:
             norm_grad[output==0] = 0
 
         input.grad = torch.nn.grad.conv2d_input(input.shape, weights, norm_grad, stride=stride, padding=padding)
@@ -48,33 +44,29 @@ class conv2d(Function):
 
 class conv3d(Function):
     @staticmethod
-    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, shortcut=False):
+    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1):
         # torch.Size([1, 64, 16, 56, 56])
 
-        ctx.hparam = [stride, padding, dilation, groups, shortcut]
+        ctx.hparam = [stride, padding, dilation, groups]
         output = F.conv3d(input, weight, bias, stride,
                         padding, dilation, groups)
         ctx.save_for_backward(input, weight, bias)
         return output
     @staticmethod
     def backward(ctx, grad_output):
+        pdb.set_trace()
         # input (N,C,D,H,W)
         # weights (F,C,DD,HH,WW)
         # output (N,F,Hd,Hh,Hw)
         input, weights, bias = ctx.saved_tensors
-        stride, padding, dilation, groups, shortcut = ctx.hparam
-        if (torchexplain.shortcut == "shortcut" and shortcut) or (
-                torchexplain.shortcut == "main" and not shortcut) or torchexplain.shortcut is None:
-            weights = torch.clamp(weights, min=0)
-        else:
-            # essentially turn off this connection by assigning equal contribution to all neurons
-            weights = torch.ones_like(weights)
+        stride, padding, dilation, groups= ctx.hparam
+        weights = torch.clamp(weights, min=0)
         output = F.conv3d(input, weights, None, stride,
                           padding, dilation, groups)
-        output[output == 0] += torchexplain.epsilon
+        output[output == 0] += epsilon
         norm_grad = grad_output / output
         # following EB special case, zero outputs result in relevance of 0 in grad
-        if not torchexplain.epsilon:
+        if not epsilon:
             norm_grad[output == 0] = 0
 
         input.grad = torch.nn.grad.conv3d_input(input.shape, weights, norm_grad, stride=stride, padding=padding, groups=groups)
@@ -113,9 +105,9 @@ class firstconv2d(Function):
                           padding, dilation, groups)
 
         root_out = output - pout - nout
-        root_out[root_out==0] += torchexplain.epsilon
+        root_out[root_out==0] += epsilon
         norm_grad = grad_output / root_out
-        if not torchexplain.epsilon:
+        if not epsilon:
             norm_grad[root_out==0] = 0
         grad = torch.nn.grad.conv2d_input(input.shape, weights, norm_grad, stride=stride, padding=padding)
         pgrad = torch.nn.grad.conv2d_input(input.shape, pweights, norm_grad, stride=stride, padding=padding)
@@ -141,7 +133,7 @@ class firstconv3d(Function):
         return output
     @staticmethod
     def backward(ctx, grad_output):
-
+        pdb.set_trace()
         input, weights, bias, output = ctx.saved_tensors
         stride, padding, dilation, groups, range = ctx.hparam
         pweights = torch.clamp(weights, min=0)
@@ -157,9 +149,9 @@ class firstconv3d(Function):
                         padding, dilation, groups)
 
         root_out = output - pout - nout
-        root_out[root_out == 0] += torchexplain.epsilon
+        root_out[root_out == 0] += epsilon
         norm_grad = grad_output / root_out
-        if not torchexplain.epsilon:
+        if not epsilon:
             norm_grad[root_out == 0] = 0
         grad = torch.nn.grad.conv3d_input(input.shape, weights, norm_grad, stride=stride, padding=padding, groups=groups)
         pgrad = torch.nn.grad.conv3d_input(input.shape, pweights, norm_grad, stride=stride, padding=padding, groups=groups)
@@ -176,103 +168,93 @@ class firstconv3d(Function):
 
 class abconv2d(Function):
     @staticmethod
-    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, alpha=1, beta=0, shortcut=False):
+    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, alpha=1, beta=0):
         ctx.save_for_backward(input, weight, bias)
-        ctx.hparam = [stride, padding, dilation, groups, alpha, beta, shortcut]
+        ctx.hparam = [stride, padding, dilation, groups, alpha, beta]
         return F.conv2d(input, weight, bias, stride,
                         padding, dilation, groups)
     @staticmethod
     def backward(ctx, grad_output):
+        pdb.set_trace()
+        # import pydevd
+        # pydevd.settrace(suspend=False, trace_only_current_thread=True)
         input, weights, bias = ctx.saved_tensors
-        stride, padding, dilation, groups, alpha, beta, shortcut = ctx.hparam
+        stride, padding, dilation, groups, alpha, beta = ctx.hparam
 
         pinput = torch.clamp(input, min=0)
         linput = torch.clamp(input, max=0)
 
-        if (torchexplain.shortcut == "shortcut" and shortcut) or (
-                torchexplain.shortcut == "main" and not shortcut) or torchexplain.shortcut is None:
-            weights = torch.clamp(weights, min=0)
-            pweights = nweights = weights
-            pweights = torch.clamp(weights, min=0)
-            nweights = torch.clamp(weights, max=0)
-        else:
-            # essentially turn off this connection by assigning equal contribution to all neurons
-            weights = torch.ones_like(weights)
-            pweights = nweights = weights
-
-
+        weights = torch.clamp(weights, min=0)
+        pweights = nweights = weights
+        pweights = torch.clamp(weights, min=0)
+        nweights = torch.clamp(weights, max=0)
         pout = F.conv2d(pinput, pweights, None, stride,
                         padding, dilation, groups)
         nout = F.conv2d(linput, nweights, None, stride,
                         padding, dilation, groups)
         sum_out = pout + nout
-        sum_out[sum_out==0] += 1e-9
+        sum_out[sum_out == 0] += 1e-9
 
         norm_grad = grad_output / sum_out
 
         # norm_grad[sum_out == 0] = 0
 
-        agrad = torch.nn.grad.conv2d_input(input.shape, pweights, norm_grad, stride=stride, padding=padding)
+        agrad = torch.nn.grad.conv2d_input(input.shape, pweights, norm_grad, stride=stride, padding=padding, groups=groups)
         agrad *= pinput
-        bgrad = torch.nn.grad.conv2d_input(input.shape, nweights, norm_grad, stride=stride, padding=padding)
+        bgrad = torch.nn.grad.conv2d_input(input.shape, nweights, norm_grad, stride=stride, padding=padding, groups=groups)
         bgrad *= linput
 
         grad = agrad + bgrad
 
         if beta:
             cpout = F.conv2d(pinput, nweights, None, stride,
-                            padding, dilation, groups)
+                             padding, dilation, groups)
             cnout = F.conv2d(linput, pweights, None, stride,
-                            padding, dilation, groups)
+                             padding, dilation, groups)
             csum_out = cpout + cnout
-            csum_out[csum_out==0] += torchexplain.epsilonlon
+            csum_out[csum_out == 0] += epsilon
             c_grad = grad_output / csum_out
-            if not torchexplain.epsilonlon:
+            if not epsilon:
                 c_grad[csum_out == 0] = 0
 
-            c_agrad = torch.nn.grad.conv2d_input(input.shape, nweights, c_grad, stride=stride, padding=padding)
+            c_agrad = torch.nn.grad.conv2d_input(input.shape, nweights, c_grad, stride=stride, padding=padding, groups=groups)
             c_agrad *= pinput
-            c_bgrad = torch.nn.grad.conv2d_input(input.shape, pweights, c_grad, stride=stride, padding=padding)
+            c_bgrad = torch.nn.grad.conv2d_input(input.shape, pweights, c_grad, stride=stride, padding=padding, groups=groups)
             c_bgrad *= linput
 
             c_grad = c_agrad + c_bgrad
 
             grad = alpha * grad - beta * c_grad
         if all(ctx.needs_input_grad):
-            weights.grad = torch.nn.grad.conv2d_weight(input, weights.shape, grad, stride=stride,padding=padding)
+            weights.grad = torch.nn.grad.conv2d_weight(input, weights.shape, grad, stride=stride, padding=padding)
             if bias is not None:
-                bias.grad = torch.nn.grad.conv2d_weight(input, bias.shape, grad, stride=stride,padding=padding)
+                bias.grad = torch.nn.grad.conv2d_weight(input, bias.shape, grad, stride=stride, padding=padding)
                 return grad, weights.grad, bias.grad, None, None, None, None, None, None, None
             return grad, weights.grad, None, None, None, None, None, None, None, None
         return grad, None, None, None, None, None, None, None, None, None
 
 class abconv3d(Function):
     @staticmethod
-    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, alpha=1, beta=0, shortcut=False):
+    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, alpha=1, beta=0):
         ctx.save_for_backward(input, weight, bias)
-        ctx.hparam = [stride, padding, dilation, groups, alpha, beta, shortcut]
+        ctx.hparam = [stride, padding, dilation, groups, alpha, beta]
         return F.conv3d(input, weight, bias, stride,
                         padding, dilation, groups)
     @staticmethod
     def backward(ctx, grad_output):
+        pdb.set_trace()
         # import pydevd
         # pydevd.settrace(suspend=False, trace_only_current_thread=True)
         input, weights, bias = ctx.saved_tensors
-        stride, padding, dilation, groups, alpha, beta, shortcut = ctx.hparam
+        stride, padding, dilation, groups, alpha, beta = ctx.hparam
 
         pinput = torch.clamp(input, min=0)
         linput = torch.clamp(input, max=0)
 
-        if (torchexplain.shortcut == "shortcut" and shortcut) or (
-                torchexplain.shortcut == "main" and not shortcut) or torchexplain.shortcut is None:
-            weights = torch.clamp(weights, min=0)
-            pweights = nweights = weights
-            pweights = torch.clamp(weights, min=0)
-            nweights = torch.clamp(weights, max=0)
-        else:
-            # essentially turn off this connection by assigning equal contribution to all neurons
-            weights = torch.ones_like(weights)
-            pweights = nweights = weights
+        weights = torch.clamp(weights, min=0)
+        pweights = nweights = weights
+        pweights = torch.clamp(weights, min=0)
+        nweights = torch.clamp(weights, max=0)
 
         pout = F.conv3d(pinput, pweights, None, stride,
                         padding, dilation, groups)
@@ -298,9 +280,9 @@ class abconv3d(Function):
             cnout = F.conv3d(linput, pweights, None, stride,
                              padding, dilation, groups)
             csum_out = cpout + cnout
-            csum_out[csum_out == 0] += torchexplain.epsilonlon
+            csum_out[csum_out == 0] += epsilon
             c_grad = grad_output / csum_out
-            if not torchexplain.epsilonlon:
+            if not epsilon:
                 c_grad[csum_out == 0] = 0
 
             c_agrad = torch.nn.grad.conv3d_input(input.shape, nweights, c_grad, stride=stride, padding=padding, groups=groups)
@@ -333,6 +315,7 @@ class avg_pool3d(Function):
         return output
     @staticmethod
     def backward(ctx, grad_output):
+        pdb.set_trace()
         input, output = ctx.saved_tensors
         kernel_size, stride, padding, ceil_mode, count_include_pad = ctx.hparams
         norm_grad = grad_output / output
@@ -425,23 +408,6 @@ class adaptive_avg_pool3d(Function):
     def backward(ctx, grad_output):
         input, output = ctx.saved_tensors
         # Reverse engineer params
-        x_size = torch.tensor(input.size(), dtype=torch.int)[1:]
-        y_size = torch.tensor(output.size(), dtype=torch.int)[1:]
-        if torch.any(y_size == 0):
-            zero_idcs = y_size == 0
-            y_size[zero_idcs] += 1
-            kernel_size = (x_size + y_size - 1) // y_size
-            kernel_size[zero_idcs] = 0
-        else:
-            kernel_size = (x_size + y_size - 1) // y_size
-        if torch.any(y_size == 1):
-            ones_idcs = y_size == 1
-            y_size[ones_idcs] += 1
-            stride = (x_size - kernel_size) // (y_size - 1)
-            stride[ones_idcs] = 0
-        else:
-            stride = (x_size - kernel_size)
-        kernel_size, stride = tuple([ele.item() for ele in kernel_size]), tuple([ele.item() for ele in stride])
         padding = (0, 0, 0)
         norm_grad = grad_output / output
         # following EB special case, zero outputs result in relevance of 0 in grad
@@ -455,14 +421,27 @@ class adaptive_avg_pool3d(Function):
         pad_input = F.pad(input, pad)
         N, C, D, H, W = output.shape
         padded_grad = torch.zeros_like(pad_input)
-        # The gradient of each element of the output can be distributed equally to each of the elements in the padded input pooling block
+
         for n in range(N):
             for c in range(C):
-                for d in range(0, D, stride[0]):
-                    for h in range(0, H, stride[1]):
-                        for w in range(0, W, stride[2]):
-                            # padded_grad[n, c, d:d + kernel_size[0], h:h + kernel_size[1], w:w + kernel_size[2]] += 1 / torch.tensor(kernel_size).prod(0)
-                            padded_grad[n, c, d:d + kernel_size[0], h:h + kernel_size[1], w:w + kernel_size[2]] += norm_grad[n, c, d, h, w] / torch.tensor(kernel_size).prod(0)
+                for d in range(0,D,1):
+                    istartD = floor(float(d*input.shape[2])/D)
+                    iendD = ceil(float((d+1)*input.shape[2])/D)
+                    kD = iendD - istartD
+                    for h in range(0,H,1):
+                        istartH = ceil(float(h*input.shape[3])/H)
+                        iendH = ceil(float((h+1)*input.shape[3])/H)
+                        kH = iendH - istartH
+                        for w in range(0,W,1):
+                            istartW = floor(float(w*input.shape[4])/W)
+                            iendW = ceil(float((w+1)*input.shape[4])/W)
+                            kW = iendW - istartW
+
+                            grad_delta = norm_grad[n,c,d,h,w] / kD / kH / kW
+
+                            padded_grad[n,c,istartD:iendD,istartH:iendH,istartW:iendW] += grad_delta
+
+
         n_pad = [0 for _ in padding]
         for i in range(0, 6, 2):
             if padding[i] > 0:
@@ -506,10 +485,10 @@ class adaptive_avg_pool2d(Function):
             stride = (x_size - kernel_size) // (y_size - 1)
         kernel_size, stride = tuple([ele.item() for ele in kernel_size]), tuple([ele.item() for ele in stride])
         padding = (0, 0)
-        output += torchexplain.epsilon
+        output += epsilon
         norm_grad = grad_output / output
         # following EB special case, zero outputs result in relevance of 0 in grad
-        if not torchexplain.epsilon:
+        if not epsilon:
             norm_grad[output == 0] = 0
         pad = []
         for p in _pair(padding):
@@ -550,9 +529,9 @@ class max_pool2d(Function):
     def backward(ctx, grad_output):
         input, output = ctx.saved_tensors
         kernel_size, stride, padding, dilation, ceil_mode, return_indices = ctx.hparams
-        output[output==0] += torchexplain.epsilon
+        output[output==0] += epsilon
         norm_grad = grad_output / output
-        if not torchexplain.epsilon:
+        if not epsilon:
             norm_grad[output == 0] = 0
         # following EB special case, zero outputs result in relevance of 0 in grad
         # norm_grad[output==0] = 0
@@ -572,7 +551,7 @@ class max_pool3d(Function):
     def backward(ctx, grad_output):
         input, output = ctx.saved_tensors
         kernel_size, stride, padding, dilation, ceil_mode, return_indices = ctx.hparams
-        # output += torchexplain.epsilon
+        # output += epsilon
         norm_grad = grad_output / output
         # following EB special case, zero outputs result in relevance of 0 in grad
         norm_grad[output==0] = 0
@@ -592,12 +571,13 @@ class linear(Function):
         return output
     @staticmethod
     def backward(ctx, grad_output):
+        pdb.set_trace()
         input, weight, bias = ctx.saved_tensors
         weight = torch.clamp(weight, min=0)
         output = input.matmul(weight.t())
-        output[output==0] += torchexplain.epsilon
+        output[output==0] += epsilon
         norm_grad = grad_output / output
-        if not torchexplain.epsilon:
+        if not epsilon:
             norm_grad[output==0] = 0
         # following EB special case, zero outputs result in relevance of 0 in grad
         # norm_grad[output==0] = 0
@@ -656,6 +636,7 @@ class batch_norm(Function):
         ctx.hparams = (weight, bias, running_mean, running_var, eps)
         return output
     def backward(ctx, grad_output):
+        pdb.set_trace()
         input, output = ctx.saved_tensors
         weight, bias, running_mean, running_var, eps = ctx.hparams
         x1 = x2 = torch.zeros_like(input)

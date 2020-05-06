@@ -1,3 +1,4 @@
+shortcut = None
 epsilon=1e-7
 from .autograd import *
 from .conv import *
