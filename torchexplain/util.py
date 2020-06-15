@@ -67,6 +67,8 @@ class Add(nn.Module):
     def forward(self, *input):
         return add(*input)
 
+
+
 class MinMaxScaler(nn.Module):
     def forward(self, input):
         return scale(input, input.min(), input.max() - input.min())

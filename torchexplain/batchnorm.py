@@ -62,7 +62,7 @@ class _BatchNorm(nn.Module):
 
         return batch_norm(
             input, self.running_mean, self.running_var, self.weight, self.bias,
-            self.training or not self.track_running_stats,
+            False,
             exponential_average_factor, self.eps)
 
     def extra_repr(self):

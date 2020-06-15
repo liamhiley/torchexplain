@@ -2,3 +2,5 @@
 *.png
 *.h5
 *.pth
+.idea/*
+/build/
