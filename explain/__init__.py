@@ -1,4 +1,4 @@
-__version__ = 0.4.0
+__version__ = "0.4.0"
 shortcut = None
 epsilon=1e-7
 from .autograd import *
