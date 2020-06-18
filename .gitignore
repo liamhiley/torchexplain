@@ -4,3 +4,5 @@
 *.pth
 .idea/*
 /build/
+*.pyc
+explain/__pycache__
