@@ -11,10 +11,10 @@ from . import epsilon
 
 class conv2d(Function):
     @staticmethod
-    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1):
+    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, downsample=False):
         # torch.Size([1, 64, 16, 56, 56])
         ctx.save_for_backward(input, weight, bias)
-        ctx.hparam = [stride, padding, dilation, groups]
+        ctx.hparam = [stride, padding, dilation, groups, downsample]
         return F.conv2d(input, weight, bias, stride,
                         padding, dilation, groups)
     @staticmethod
@@ -23,7 +23,7 @@ class conv2d(Function):
         # weights (F,C,DD,HH,WW)
         # output (N,F,Hd,Hh,Hw)
         input, weights, bias = ctx.saved_tensors
-        stride, padding, dilation, groups = ctx.hparam
+        stride, padding, dilation, groups, downsample = ctx.hparam
         weights = torch.clamp(weights, min=0)
         output = F.conv2d(input, weights, None, stride,
                         padding, dilation, groups)
@@ -46,10 +46,10 @@ class conv2d(Function):
 
 class conv3d(Function):
     @staticmethod
-    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1):
+    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, downsample=False):
         # torch.Size([1, 64, 16, 56, 56])
 
-        ctx.hparam = [stride, padding, dilation, groups]
+        ctx.hparam = [stride, padding, dilation, groups, downsample]
         output = F.conv3d(input, weight, bias, stride,
                         padding, dilation, groups)
         ctx.save_for_backward(input, weight, bias)
@@ -60,7 +60,7 @@ class conv3d(Function):
         # weights (F,C,DD,HH,WW)
         # output (N,F,Hd,Hh,Hw)
         input, weights, bias = ctx.saved_tensors
-        stride, padding, dilation, groups= ctx.hparam
+        stride, padding, dilation, groups, downsample= ctx.hparam
         weights = torch.clamp(weights, min=0)
         output = F.conv3d(input, weights, None, stride,
                           padding, dilation, groups)
@@ -70,6 +70,8 @@ class conv3d(Function):
         if not epsilon:
             norm_grad[output == 0] = 0
 
+        if downsample:
+            norm_grad = F.interpolate(norm_grad, size=input.shape[-3:], mode='nearest')
         input.grad = torch.nn.grad.conv3d_input(input.shape, weights, norm_grad, stride=stride, padding=padding, groups=groups)
         if all(ctx.needs_input_grad):
             weights.grad = torch.nn.grad.conv3d_weight(input, weights.shape, norm_grad, stride=stride,
@@ -169,9 +171,9 @@ class firstconv3d(Function):
 
 class abconv2d(Function):
     @staticmethod
-    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, alpha=1, beta=0):
+    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, alpha=1, beta=0, downsample=False):
         ctx.save_for_backward(input, weight, bias)
-        ctx.hparam = [stride, padding, dilation, groups, alpha, beta]
+        ctx.hparam = [stride, padding, dilation, groups, alpha, beta, downsample]
         return F.conv2d(input, weight, bias, stride,
                         padding, dilation, groups)
     @staticmethod
@@ -179,7 +181,7 @@ class abconv2d(Function):
         # import pydevd
         # pydevd.settrace(suspend=False, trace_only_current_thread=True)
         input, weights, bias = ctx.saved_tensors
-        stride, padding, dilation, groups, alpha, beta = ctx.hparam
+        stride, padding, dilation, groups, alpha, beta, downsample = ctx.hparam
 
         pinput = torch.clamp(input, min=0)
         linput = torch.clamp(input, max=0)
@@ -235,15 +237,15 @@ class abconv2d(Function):
 
 class abconv3d(Function):
     @staticmethod
-    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, alpha=1, beta=0):
+    def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, alpha=1, beta=0, downsample=False):
         ctx.save_for_backward(input, weight, bias)
-        ctx.hparam = [stride, padding, dilation, groups, alpha, beta]
+        ctx.hparam = [stride, padding, dilation, groups, alpha, beta, downsample]
         return F.conv3d(input, weight, bias, stride,
                         padding, dilation, groups)
     @staticmethod
     def backward(ctx, grad_output):
         input, weights, bias = ctx.saved_tensors
-        stride, padding, dilation, groups, alpha, beta = ctx.hparam
+        stride, padding, dilation, groups, alpha, beta, downsample = ctx.hparam
 
         pinput = torch.clamp(input, min=0)
         linput = torch.clamp(input, max=0)
@@ -260,12 +262,14 @@ class abconv3d(Function):
         sum_out[sum_out == 0] += 1e-9
 
         norm_grad = grad_output / sum_out
+        if downsample:
+            norm_grad = F.interpolate(norm_grad, size=input.shape[-3:], mode='trilinear')
 
         # norm_grad[sum_out == 0] = 0
 
-        agrad = torch.nn.grad.conv3d_input(input.shape, pweights, norm_grad, stride=stride, padding=padding, groups=groups)
+        agrad = torch.nn.grad.conv3d_input(input.shape, pweights, norm_grad, stride=1, padding=padding, groups=groups)
         agrad *= pinput
-        bgrad = torch.nn.grad.conv3d_input(input.shape, nweights, norm_grad, stride=stride, padding=padding, groups=groups)
+        bgrad = torch.nn.grad.conv3d_input(input.shape, nweights, norm_grad, stride=1, padding=padding, groups=groups)
         bgrad *= linput
 
         grad = agrad + bgrad

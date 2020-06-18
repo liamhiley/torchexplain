@@ -68,9 +68,9 @@ class Conv2d(_ConvNd):
         if self.range:
             return firstconv2d(input, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups, self.range)
         elif self.alpha:
-            return abconv2d(input, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups, self.alpha, self.beta)
+            return abconv2d(input, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups, self.alpha, self.beta, self.downsample)
         else:
-            return conv2d(input, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups, self.range, self)
+            return conv2d(input, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups, self.range, self.downsample)
 
 class Conv3d(_ConvNd):
     def __init__(self, in_channels, out_channels, kernel_size=1, stride=1,
@@ -85,9 +85,9 @@ class Conv3d(_ConvNd):
     def forward(self, input):
         if self.range:
             return firstconv3d(input, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups,
-                               self.range, self.downsample)
+                               self.range)
         elif self.alpha:
             return abconv3d(input, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups,
-                          self.alpha, self.beta)
+                          self.alpha, self.beta, self.downsample)
         else:
-            return conv3d(input, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
+            return conv3d(input, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups, self.downsample)
