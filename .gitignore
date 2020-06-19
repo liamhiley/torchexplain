@@ -5,7 +5,7 @@
 .idea/*
 /build/
 *.pyc
-explain/__pycache__
+/explain/__pycache__
 /dist/
 /.eggs/
 /torchexplain.egg-info/
