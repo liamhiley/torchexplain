@@ -4,7 +4,7 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 setup(
         name="torchexplain",
-        version="0.4.0",
+        version="0.5.0",
         packages=["explain"],
         setup_requires=["setuptools_scm"],
         install_requires=[
