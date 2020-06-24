@@ -1,3 +1,5 @@
+__version__ = "0.5.0"
+shortcut = None
 epsilon=1e-7
 from .autograd import *
 from .conv import *

@@ -1,12 +1,13 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from .autograd import avg_pool3d, avg_pool2d, add
-from explain import Conv2d, Conv3d, BatchNorm2d, BatchNorm3d
+from .autograd import avg_pool3d, avg_pool2d, add, scale
+from . import Conv2d, Conv3d, BatchNorm2d, BatchNorm3d
 avg_pool3d = avg_pool3d.apply
 avg_pool2d = avg_pool2d.apply
 # avg_pool1d = avg_pool1d.apply
 add = add.apply
+scale = scale.apply
 from functools import partial
 class Shortcut(nn.Module):
     def forward(self, *input):
@@ -65,3 +66,9 @@ class Downsample(nn.Module):
 class Add(nn.Module):
     def forward(self, *input):
         return add(*input)
+
+
+
+class MinMaxScaler(nn.Module):
+    def forward(self, input):
+        return scale(input, input.min(), input.max() - input.min())

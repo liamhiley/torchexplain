@@ -318,14 +318,15 @@ class avg_pool2d(Function):
     def backward(ctx, grad_output):
         input, output = ctx.saved_tensors
         kernel_size, stride, padding, ceil_mode, count_include_pad = ctx.hparams
-        norm_grad = grad_output / output
-        # following EB special case, zero outputs result in relevance of 0 in grad
-        norm_grad[output==0] = 0
+        N,C,H,W = input.shape
+        n,c,h,w = output.shape
+        k_h, k_w = kernel_size
+        s_h, s_w = stride
         pad = []
         for p in _pair(padding):
             pad1 = p // 2
             pad2 = p - pad1
-            pad += [pad1, pad2]
+            pad = [pad1, pad2] + pad
         padding = tuple(pad)
         pad_input = F.pad(input, pad)
         N, C, H, W = output.shape
@@ -438,7 +439,10 @@ class max_pool2d(Function):
         input.grad = padded_grad[...,padding[-2]:input.shape[2]+1-padding[-1],padding[-4]:input.shape[3]+1-padding[-3]]
         return (input.grad), None, None, None, None, None, None
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 673deace68c487198a2091f7061fc9d7f1d4221d
 class max_pool3d(Function):
     @staticmethod
     def forward(ctx, input, kernel_size=1, stride=1, padding=0, dilation=1, ceil_mode=False, return_indices=True):
