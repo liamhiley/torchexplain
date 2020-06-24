@@ -44,6 +44,18 @@ class AvgPool3d(_AvgPoolNd):
     def forward(self, input):
         return avg_pool3d(input, self.kernel_size, self.stride, self.padding, self.ceil_mode, self.count_include_pad)
 
+class AvgPool2d(_AvgPoolNd):
+    def __init__(self, kernel_size, stride=None, padding=0, ceil_mode=False, count_include_pad=True):
+        super(AvgPool2d, self).__init__()
+        self.kernel_size = _pair(kernel_size)
+        self.stride = _pair(stride) or _pair(kernel_size)
+        self.padding = _pair(padding)
+        self.ceil_mode = ceil_mode
+        self.count_include_pad = count_include_pad
+
+    def forward(self, input):
+        return avg_pool2d(input, self.kernel_size, self.stride, self.padding, self.ceil_mode, self.count_include_pad)
+
 class _MaxPoolNd(nn.Module):
     def __init__(self, kernel_size, stride=None, padding=0, dilation=1, ceil_mode=False, return_indices=True):
         super(_MaxPoolNd, self).__init__()

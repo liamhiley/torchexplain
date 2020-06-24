@@ -51,7 +51,7 @@ class _BatchNorm(nn.Module):
 
         exponential_average_factor = 0.0
 
-        # Training is currently not implemented for torchexplain
+        # Training is currently not implemented for torchtorchtorchexplain
         # if self.training and self.track_running_stats:
         #     if self.num_batches_tracked is not None:
         #         self.num_batches_tracked += 1
@@ -62,7 +62,7 @@ class _BatchNorm(nn.Module):
 
         return batch_norm(
             input, self.running_mean, self.running_var, self.weight, self.bias,
-            self.training or not self.track_running_stats,
+            False,
             exponential_average_factor, self.eps)
 
     def extra_repr(self):
