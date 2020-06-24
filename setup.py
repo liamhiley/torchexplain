@@ -1,10 +1,11 @@
+import pathlib
 from setuptools import setup, find_packages
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+HERE = pathlib.Path(__file__).parent
+README = (HERE / "README.md").read_text()
 setup(
         name="torchexplain",
-        version="0.3.5",
-        packages=find_packages(),
+        version="0.5.0",
+        packages=["explain"],
         setup_requires=["setuptools_scm"],
         install_requires=[
             "numpy",
@@ -15,7 +16,7 @@ setup(
         author=("Liam Hiley"),
         author_email="hileyl@cardiff.ac.uk",
         description="Extension to PyTorch to include explanations via Layerwise Relevance Propagation",
-        long_description=long_description,
+        long_description=README,
         license="MIT License",
         keywords=["explainability"],
         url="https://github.com/liamhiley/torchexplain",
@@ -34,7 +35,6 @@ setup(
             'Programming Language :: Python :: 3.5',
             'Programming Language :: Python :: 3.6',
             'Programming Language :: Python :: 3.7',
-            'Topic :: Multimedia :: Sound/Audio',
     ],
 )
 

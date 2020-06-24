@@ -2,3 +2,10 @@
 *.png
 *.h5
 *.pth
+.idea/*
+/build/
+*.pyc
+/explain/__pycache__
+/dist/
+/.eggs/
+/torchexplain.egg-info/
