@@ -8,7 +8,6 @@ from math import ceil, floor
 import pdb
 from . import epsilon
 
-
 class conv2d(Function):
     @staticmethod
     def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, downsample=False):
@@ -34,14 +33,16 @@ class conv2d(Function):
             norm_grad[output==0] = 0
 
         input.grad = torch.nn.grad.conv2d_input(input.shape, weights, norm_grad, stride=stride, padding=padding)
-        if all(ctx.needs_input_grad):
-            weights.grad = torch.nn.grad.conv2d_weight(input, weights.shape, norm_grad, stride=stride,
-                                                padding=padding)
-            if bias is not None:
-                bias.grad = torch.nn.grad.conv2d_weight(input, bias.shape, norm_grad, stride=stride,
-                                                padding=padding)
-                return (input.grad * input), weights.grad, bias.grad, None, None, None, None, None
-            return (input.grad * input), weights.grad, None, None, None, None, None, None
+        weights = weights.cpu()
+        output = output.cpu()
+        # if all(ctx.needs_input_grad):
+        #     weights.grad = torch.nn.grad.conv2d_weight(input, weights.shape, norm_grad, stride=stride,
+        #                                         padding=padding)
+        #     if bias is not None:
+        #         bias.grad = torch.nn.grad.conv2d_weight(input, bias.shape, norm_grad, stride=stride,
+        #                                         padding=padding)
+        #         return (input.grad * input), weights.grad, bias.grad, None, None, None, None, None
+        #     return (input.grad * input), weights.grad, None, None, None, None, None, None
         return (input.grad * input), None, None, None, None, None, None, None
 
 class conv3d(Function):
@@ -71,7 +72,7 @@ class conv3d(Function):
             norm_grad[output == 0] = 0
 
         if downsample:
-            norm_grad = F.interpolate(norm_grad, size=input.shape[-3:], mode='nearest')
+            norm_grad = F.interpolate(norm_grad, size=input.shape[-3:], mode='trilinear')
         input.grad = torch.nn.grad.conv3d_input(input.shape, weights, norm_grad, stride=stride, padding=padding, groups=groups)
         if all(ctx.needs_input_grad):
             weights.grad = torch.nn.grad.conv3d_weight(input, weights.shape, norm_grad, stride=stride,
@@ -167,6 +168,7 @@ class firstconv3d(Function):
                                                         padding=padding)
                 return (grad * input - pgrad * linput - ngrad * hinput), weights.grad, bias.grad, None, None, None, None, None
             return (grad * input - pgrad * linput - ngrad * hinput), weights.grad, None, None, None, None, None, None
+        # testing
         return (grad * input - pgrad * linput - ngrad * hinput), None, None, None, None, None, None, None
 
 class abconv2d(Function):
@@ -239,7 +241,8 @@ class abconv3d(Function):
     @staticmethod
     def forward(ctx, input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, alpha=1, beta=0, downsample=False):
         ctx.save_for_backward(input, weight, bias)
-        ctx.hparam = [stride, padding, dilation, groups, alpha, beta, downsample]
+        ctx.hparam = [stride, padding, dilation, groups, alpha, beta,
+                      downsample]
         return F.conv3d(input, weight, bias, stride,
                         padding, dilation, groups)
     @staticmethod
@@ -259,13 +262,14 @@ class abconv3d(Function):
         nout = F.conv3d(linput, nweights, None, stride,
                         padding, dilation, groups)
         sum_out = pout + nout
-        sum_out[sum_out == 0] += 1e-9
+        sum_out[sum_out == 0] += epsilon
 
         norm_grad = grad_output / sum_out
+        if not epsilon:
+            norm_grad[sum_out == 0] = 0
+
         if downsample:
             norm_grad = F.interpolate(norm_grad, size=input.shape[-3:], mode='trilinear')
-
-        # norm_grad[sum_out == 0] = 0
 
         agrad = torch.nn.grad.conv3d_input(input.shape, pweights, norm_grad, stride=1, padding=padding, groups=groups)
         agrad *= pinput
@@ -311,14 +315,15 @@ class avg_pool2d(Function):
         #     padding = (0,) + padding
         #     dilation = (1,) + dilation
         output = F.avg_pool2d(input, kernel_size, stride, padding, ceil_mode, count_include_pad)
-        ctx.save_for_backward(input, output)
+        ctx.save_for_backward(input)
         ctx.hparams = [_pair(kernel_size), _pair(stride), _pair(padding), ceil_mode, count_include_pad]
         return output
     @staticmethod
     def backward(ctx, grad_output):
-        input, output = ctx.saved_tensors
-        kernel_size, stride, padding, ceil_mode, count_include_pad = ctx.hparams
-        N,C,H,W = input.shape
+        input = ctx.saved_tensors
+        in_shape, kernel_size, stride, padding, ceil_mode, count_include_pad = ctx.hparams
+        output = F.avg_pool2d(input, kernel_size, stride, padding, ceil_mode, count_include_pad)
+        N,C,H,W = in_shape
         n,c,h,w = output.shape
         k_h, k_w = kernel_size
         s_h, s_w = stride
@@ -334,7 +339,6 @@ class avg_pool2d(Function):
             for k in range(w):
                 x = pad_input[:,:,j*s_h:j*s_h+k_h,k*s_w:k*s_w+k_w]
                 y = output[:,:,j:j+1,k:k+1].repeat((1,1,k_h,k_w))
-                
                 Z = (x == y).float()
                 Zs = Z.sum((2,3,4)).view(N,C,1,1)
 
@@ -357,13 +361,14 @@ class avg_pool3d(Function):
         #     padding = (0,) + padding
         #     dilation = (1,) + dilation
         output = F.avg_pool3d(input, kernel_size, stride, padding, ceil_mode, count_include_pad)
-        ctx.save_for_backward(input, output)
+        ctx.save_for_backward(input)
         ctx.hparams = [_triple(kernel_size), _triple(stride), _triple(padding), ceil_mode, count_include_pad]
         return output
     @staticmethod
     def backward(ctx, grad_output):
-        input, output = ctx.saved_tensors
+        input = ctx.saved_tensors[0]
         kernel_size, stride, padding, ceil_mode, count_include_pad = ctx.hparams
+        output = F.avg_pool3d(input, kernel_size, stride, padding, ceil_mode, count_include_pad)
         N,C,D,H,W = input.shape
         n,c,d,h,w = output.shape
         k_d, k_h, k_w = kernel_size
@@ -389,6 +394,7 @@ class avg_pool3d(Function):
 
         # following EB special case, zero outputs result in relevance of 0 in grad
         padding = list(padding)
+
         input.grad = padded_grad[...,padding[-2]:input.shape[2]+1-padding[-1],padding[-4]:input.shape[3]+1-padding[-3],padding[-6]:input.shape[4]+1-padding[-5]]
         return (input.grad), None, None, None, None, None, None
 
@@ -396,13 +402,16 @@ class max_pool2d(Function):
     @staticmethod
     def forward(ctx, input, kernel_size=1, stride=1, padding=0, dilation=1, ceil_mode=False, return_indices=True):
         output, return_indices = F.max_pool2d(input, kernel_size, stride, padding, dilation, ceil_mode, return_indices)
-        ctx.save_for_backward(input, output)
+        ctx.save_for_backward(input)
         ctx.hparams = [kernel_size, stride, padding, dilation, ceil_mode, return_indices]
         return output
     @staticmethod
     def backward(ctx, grad_output):
-        input, output = ctx.saved_tensors
+        input = ctx.saved_tensors[0]
         kernel_size, stride, padding, dilation, ceil_mode, return_indices = ctx.hparams
+        output, return_indices = F.max_pool2d(input, kernel_size, stride,
+                                              padding, dilation, ceil_mode,
+                                              True)
         N,C,H,W = input.shape
         n,c,h,w = output.shape
         k_h, k_w = kernel_size
@@ -437,18 +446,20 @@ class max_pool2d(Function):
         input.grad = padded_grad[...,padding[-2]:input.shape[2]+1-padding[-1],padding[-4]:input.shape[3]+1-padding[-3]]
         return (input.grad), None, None, None, None, None, None
 
-
 class max_pool3d(Function):
     @staticmethod
     def forward(ctx, input, kernel_size=1, stride=1, padding=0, dilation=1, ceil_mode=False, return_indices=True):
         output, return_indices = F.max_pool3d(input, kernel_size, stride, padding, dilation, ceil_mode, return_indices)
-        ctx.save_for_backward(input, output)
+        ctx.save_for_backward(input)
         ctx.hparams = [kernel_size, stride, padding, dilation, ceil_mode, return_indices]
         return output
     @staticmethod
     def backward(ctx, grad_output):
-        input, output = ctx.saved_tensors
+        input = ctx.saved_tensors[0]
         kernel_size, stride, padding, dilation, ceil_mode, return_indices = ctx.hparams
+        output, return_indices = F.max_pool3d(input, kernel_size, stride,
+                                              padding, dilation, ceil_mode,
+                                              True)
         N,C,D,H,W = input.shape
         n,c,d,h,w = output.shape
         k_d, k_h, k_w = kernel_size
@@ -482,18 +493,26 @@ class max_pool3d(Function):
         # following EB special case, zero outputs result in relevance of 0 in grad
         padding = list(padding)
         input.grad = padded_grad[...,padding[-2]:input.shape[2]+1-padding[-1],padding[-4]:input.shape[3]+1-padding[-3],padding[-6]:input.shape[4]+1-padding[-5]]
+        # pdb.set_trace()
+        # f = input.mean((0,1,2)).cpu()
+        # plt.imsave(f"{save_path}in.png",f)
+        # f = input.grad.mean((0,1,2)).cpu()
+        # plt.imsave(f"{save_path}ingrad.png",f)
         return (input.grad), None, None, None, None, None, None
 
 class adaptive_avg_pool2d(Function):
     @staticmethod
     def forward(ctx, input, output_size):
         output = F.adaptive_avg_pool2d(input, output_size)
-        ctx.save_for_backward(input, output)
+        ctx.save_for_backward(input)
+        ctx.hparams = output_size
         return output
 
     @staticmethod
     def backward(ctx, grad_output):
-        input, output = ctx.saved_tensors
+        input = ctx.saved_tensors
+        output_size = ctx.hparams
+        output = F.adaptive_avg_pool2d(input, output_size)
         # Reverse engineer params
         norm_grad = grad_output / output
         # following EB special case, zero outputs result in relevance of 0 in grad
@@ -521,16 +540,20 @@ class adaptive_avg_pool3d(Function):
     @staticmethod
     def forward(ctx, input, output_size):
         output = F.adaptive_avg_pool3d(input, output_size)
-        ctx.save_for_backward(input, output)
+        ctx.save_for_backward(input)
+        ctx.hparams = output_size
         return output
 
     @staticmethod
     def backward(ctx, grad_output):
-        input, output = ctx.saved_tensors
+        input = ctx.saved_tensors[0]
+        output_size = ctx.hparams
+        output = F.adaptive_avg_pool3d(input, output_size)
         # Reverse engineer params
         norm_grad = grad_output / output
         # following EB special case, zero outputs result in relevance of 0 in grad
         norm_grad[output == 0] = 0
+        N, C, D, H, W = output.shape
         in_grad = torch.zeros_like(input)
         for d in range(0,D,1):
             istartD = floor(float(d*input.shape[2])/D)
@@ -547,10 +570,9 @@ class adaptive_avg_pool3d(Function):
 
                     grad_delta = norm_grad[:,:,d,h,w] / kD / kH / kW
 
-                    in_grad[:,:,istartD:iendD,istartH:iendH,istartW:iendW] += grad_delta
+                    in_grad[:,:,istartD:iendD,istartH:iendH,istartW:iendW] += grad_delta.view(grad_delta.shape + (1,1,1))
         input.grad = in_grad
         return (input * input.grad), None, None, None, None, None
-
 
 
 class linear(Function):
@@ -568,12 +590,12 @@ class linear(Function):
         weight = torch.clamp(weight, min=0)
         output = input.matmul(weight.t())
         output[output==0] += epsilon
-        norm_grad = grad_output / output
+        norm_grad = grad_output / output.cuda()
         if not epsilon:
             norm_grad[output==0] = 0
         # following EB special case, zero outputs result in relevance of 0 in grad
         # norm_grad[output==0] = 0
-        input.grad = norm_grad.matmul(weight)
+        input.grad = norm_grad.matmul(weight.cuda())
         return (input * input.grad), None, None
 
 class threshold(Function):
@@ -587,7 +609,7 @@ class threshold(Function):
     @staticmethod
     def backward(ctx, grad_output):
         mask = ctx.saved_tensors[0]
-        return grad_output*mask, None, None, None
+        return grad_output*mask.cuda(), None, None, None
 
 class scale(Function):
     @staticmethod
@@ -624,14 +646,18 @@ class batch_norm(Function):
             input, weight, bias, running_mean, running_var,
             training, momentum, eps, torch.backends.cudnn.enabled
         )
-        ctx.save_for_backward(input, output.clone())
-        ctx.hparams = (weight, bias, running_mean, running_var, eps)
+        ctx.save_for_backward(input, weight)
+        ctx.hparams = (bias, running_mean, running_var, training, momentum, eps)
         return output
     @staticmethod
     def backward(ctx, grad_output):
         #|z|-rule as proposed in BatchNorm Decomposition for Deep Neural Network Optimisation
-        input, output = ctx.saved_tensors
-        weight, bias, running_mean, running_var, eps = ctx.hparams
+        input, weight= ctx.saved_tensors
+        bias, running_mean, running_var, training, momentum, eps = ctx.hparams
+        output = torch.batch_norm(
+            input, weight, bias, running_mean, running_var,
+            training, momentum, eps, torch.backends.cudnn.enabled
+        )
         w_in = torch.zeros_like(input)
         b_in = torch.zeros_like(input)
         for w in range(len(weight)):
@@ -639,6 +665,9 @@ class batch_norm(Function):
             b_in[:,w,...] = w_in[:,w,...] + abs(bias[w])
         out = w_in / b_in
         norm_grad = out * grad_output
+        # f = (input.grad).cpu()
+        # mdl = "sf"
+        # plt.imsave(f"{save_path}{mdl}.png",f)
         return norm_grad, None, None, None, None, None, None, None
 
         #x1 = x2 = torch.zeros_like(input)
