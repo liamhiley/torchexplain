@@ -1,6 +1,6 @@
 __version__ = "0.5.0"
 shortcut = None
-epsilon=1e-7
+epsilon=0
 from .autograd import *
 from .conv import *
 from .pooling import *
