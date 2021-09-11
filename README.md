@@ -6,7 +6,7 @@ Explainability functionality built on top of the PyTorch autograd package. Curre
 Enable the autograd graph for your input tensor:
 `input_sample.requires_grad_()`
 ### Model
-The package redefines the most common layers you'd find in an NN (the full list is found in [./explain/autograd.py](autograd.py)). Define your model class using these (it should be sufficient to replace references to torch.nn with torchexplain).
+The package redefines the most common layers you'd find in an NN (the full list is found in [autograd.py](./explain/autograd.py)). Define your model class using these (it should be sufficient to replace references to torch.nn with torchexplain).
 ### Explain
 Get the output of your forward pass and explain using the tensor's builtin autograd backprop function. If you want to explain for a specific class, use the grad_mask to set all output neurons to 0 other than the target.
 ``
